@@ -7,7 +7,7 @@
 </h1>
 
 <p align="center">
-  <a href="#building"><img src="https://img.shields.io/badge/build-cmake-blue" alt="CMake"></a>
+  <a href="#building-from-source"><img src="https://img.shields.io/badge/build-cmake-blue" alt="CMake"></a>
   <a href="https://aur.archlinux.org/packages/yanvim-git"><img src="https://img.shields.io/badge/AUR-yanvim--git-1793d1?logo=archlinux&logoColor=white" alt="AUR"></a>
   <a href="./LICENSE.txt"><img src="https://img.shields.io/badge/license-Apache%202.0-green" alt="License"></a>
   <a href="https://github.com/Rodericuss/yet-another-neovim/tree/stable"><img src="https://img.shields.io/badge/base-neovim%200.12.2-57A143?logo=neovim&logoColor=white" alt="Neovim 0.12.2"></a>
@@ -17,12 +17,6 @@
   A Neovim fork with a built-in <b>Helix-style selection-first editing paradigm</b>.
   <br>
   You select, <i>then</i> you act. Like a civilized person.
-</p>
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/placeholder" alt="yanvim demo" width="600">
-  <br>
-  <sub>(demo gif goes here — record one with <code>:set paradigm=helix</code> and show off <code>w w w d</code>)</sub>
 </p>
 
 ---
@@ -36,18 +30,21 @@ vim.opt.paradigm = 'vim'    -- default. you already know this one.
 vim.opt.paradigm = 'helix'  -- the good one.
 ```
 
-Set it to `'helix'` and Normal mode becomes selection-first. Every motion selects. Every verb acts on what you selected. No more `d3w` and praying you counted the words right. You press `w` three times, *see* exactly what you're about to obliterate, and *then* press `d`. Revolutionary? No. Helix has been doing this for years. But you like your 847 Neovim plugins, and Helix doesn't have those. So here we are.
+Set it to `'helix'` and Normal mode becomes selection-first. Motions like `w`, `b`, `$`, `G` create visual selections instead of just moving the cursor. You see what you're about to act on before you commit. Then you press `d`, `y`, `c` and it operates on the selection. No more `d3w` and praying you counted right.
+
+Vim-style commands like `di{`, `yi"`, `ca(` still work exactly as you'd expect. You get helix selections on top of Vim, not instead of it.
 
 ---
 
 ## How it works
 
-| | What happens |
-|---|---|
-| **Motions select** | Press `w` and the next word lights up. Press `$` and everything to the end of the line lights up. Press `G` and... you get the idea. |
-| **`h`/`j`/`k`/`l` navigate** | They move the cursor and select the single character under it. Like arrow keys, but for people with taste. |
-| **Verbs operate on the selection** | `d` deletes it. `y` yanks it. `c` changes it. No operator-pending mode. No guessing. |
-| **`Esc` cancels** | Collapses the selection back to one character. No verb executed. No harm done. |
+**Selection motions** (`w`, `b`, `e`, `$`, `0`, `G`, `gg`, `{`, `}`, `/`, `?`, `n`, `N`) create a highlighted selection from the cursor to the destination. Each motion resets the selection — pressing `w` three times selects only the third word, not all three.
+
+**Navigation** (`h`, `j`, `k`, `l`) moves the cursor and clears any active selection. This keeps operator-pending commands working: after navigating with `hjkl`, pressing `d` waits for a motion or text object just like in regular Vim. So `di{`, `yi"`, `ca(` all work.
+
+**Verbs** (`d`, `y`, `c`, `<`, `>`) act on the active selection if there is one. If there's no selection, they enter operator-pending mode like normal Vim. Best of both worlds.
+
+**`Esc`** collapses the selection without doing anything.
 
 **Everything else is untouched.** Insert mode, Visual mode, your plugins, your sanity. `mode()` returns `'n'` so your statusline plugin doesn't have an identity crisis.
 
@@ -56,27 +53,33 @@ Set it to `'helix'` and Normal mode becomes selection-first. Every motion select
 ## Quick reference
 
 ```
-               Vim paradigm          Helix paradigm
+  SELECTION MOTIONS — create a highlighted selection
   ─────────────────────────────────────────────────────
-  w            move to next word     SELECT to next word
-  b            move to prev word     SELECT to prev word
-  e            move to end of word   SELECT to end of word
-  $            move to end of line   SELECT to end of line
-  0            move to start         SELECT to start
-  G            move to last line     SELECT to last line
-  gg           move to first line    SELECT to first line
-  {  }         paragraph motion      SELECT paragraph
-  /  ?  n  N   search                SELECT to match
+  w  b  e        word motions         select to boundary
+  $  0  ^        line motions         select to end/start
+  G  gg          file motions         select to first/last line
+  {  }           paragraph motions    select to paragraph
+  /  ?  n  N     search               select to match
+
+  NAVIGATION — move cursor, clear selection
   ─────────────────────────────────────────────────────
-  h  l         move left/right       move + 1-char select
-  j  k         move up/down          move + 1-char select
+  h  l           move left/right      no selection
+  j  k           move up/down         no selection
+
+  VERBS — act on selection, or enter operator-pending
   ─────────────────────────────────────────────────────
-  d            (needs motion)        delete selection
-  y            (needs motion)        yank selection
-  c            (needs motion)        change selection
-  <  >         (needs motion)        shift selection
+  d              with selection:      delete it
+                 without selection:   operator-pending (di{, dw, etc.)
+  y              with selection:      yank it
+                 without selection:   operator-pending (yi", yw, etc.)
+  c              with selection:      change it
+                 without selection:   operator-pending (ci(, cw, etc.)
+  <  >           shift selection or operator-pending
+
+  OTHER
   ─────────────────────────────────────────────────────
-  Esc          —                     collapse selection
+  Esc            collapse selection
+  i  a           enter insert mode (unchanged)
 ```
 
 ---
@@ -85,7 +88,7 @@ Set it to `'helix'` and Normal mode becomes selection-first. Every motion select
 
 Because you have 200 hours invested in your Neovim config and you're not throwing that away. Because Telescope exists. Because LSP in Neovim is actually good now and you already suffered through configuring it. Because switching editors is for people who don't have deadlines.
 
-This gives you the one thing Helix got right — selection-first editing — without making you abandon your entire setup.
+This gives you the one thing Helix got right — selection-first editing — without making you abandon your entire setup. And you keep `di{`.
 
 ## Why a fork? Why not a plugin?
 
@@ -145,8 +148,8 @@ vim.opt.paradigm = 'vim'
 
 | Group | Default | Purpose |
 |:---|:---|:---|
-| `HelixCursor` | → `Cursor` | 1-char resting selection |
-| `HelixSelection` | → `Visual` | Active multi-char selection |
+| `HelixCursor` | → `Cursor` | Cursor in resting state |
+| `HelixSelection` | → `Visual` | Active selection highlight |
 
 Works with any colorscheme out of the box. Override them if you want your selections to look different from Visual mode:
 

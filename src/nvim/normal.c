@@ -630,7 +630,7 @@ static bool normal_need_additional_char(NormalState *s)
                             // TODO(tarruda): Visual state needs to be refactored into a
                             // separate state that "inherits" from normal state.
                             || ((cmdchar == 'a' || cmdchar == 'i')
-                                && (pending_op || VIsual_active || helix_is_active())));
+                                && (pending_op || VIsual_active)));
 }
 
 static bool normal_need_redraw_mode_message(NormalState *s)
@@ -5924,7 +5924,7 @@ static void nv_operator(cmdarg_T *cap)
 {
   int op_type = get_op_type(cap->cmdchar, cap->nchar);
 
-  if (helix_is_active()) {
+  if (helix_is_active() && current_helix_sel.has_selection) {
     if (bt_prompt(curbuf) && op_is_change(op_type)
         && !prompt_curpos_editable()) {
       clearopbeep(cap->oap);
@@ -6376,19 +6376,6 @@ static void nv_edit(cmdarg_T *cap)
   // in Visual mode "A" and "I" are an operator
   if (VIsual_active && (cap->cmdchar == 'A' || cap->cmdchar == 'I')) {
     v_visop(cap);
-    // in helix mode "a" and "i" are text objects that create selections
-  } else if ((cap->cmdchar == 'a' || cap->cmdchar == 'i')
-             && helix_is_active()) {
-    nv_object(cap);
-    if (cap->oap->start.lnum >= 1) {
-      current_helix_sel.anchor = cap->oap->start;
-      current_helix_sel.head = curwin->w_cursor;
-      current_helix_sel.inclusive = cap->oap->inclusive;
-      current_helix_sel.has_selection =
-        (current_helix_sel.anchor.lnum != current_helix_sel.head.lnum
-         || current_helix_sel.anchor.col != current_helix_sel.head.col);
-      redraw_curbuf_later(UPD_SOME_VALID);
-    }
     // in Visual mode and after an operator "a" and "i" are for text objects
   } else if ((cap->cmdchar == 'a' || cap->cmdchar == 'i')
              && (cap->oap->op_type != OP_NOP || VIsual_active)) {

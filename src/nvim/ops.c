@@ -3948,15 +3948,11 @@ bool helix_apply_operator(int op_char)
   CLEAR_FIELD(oap);
   oap.op_type = op_type;
   oap.motion_type = kMTCharWise;
-  oap.inclusive = current_helix_sel.has_selection ? current_helix_sel.inclusive : true;
+  oap.inclusive = current_helix_sel.inclusive;
   oap.regname = 0;
 
   // Ensure start <= end
-  if (!current_helix_sel.has_selection) {
-    // 1-char resting state: operate on char under cursor
-    oap.start = curwin->w_cursor;
-    oap.end = curwin->w_cursor;
-  } else if (lt(current_helix_sel.anchor, current_helix_sel.head)) {
+  if (lt(current_helix_sel.anchor, current_helix_sel.head)) {
     oap.start = current_helix_sel.anchor;
     oap.end = current_helix_sel.head;
   } else {

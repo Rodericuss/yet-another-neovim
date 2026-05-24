@@ -3730,12 +3730,13 @@ static void nv_right(cmdarg_T *cap)
   }
 
   if (helix_is_active() && cap->oap->op_type == OP_NOP) {
+    helix_ensure_anchor(curwin->w_cursor);
     for (n = cap->count1; n > 0; n--) {
       if (oneright() == false) {
         break;
       }
     }
-    helix_selection_init();
+    helix_selection_extend_inclusive(curwin->w_cursor);
     return;
   }
 
@@ -3818,12 +3819,13 @@ static void nv_left(cmdarg_T *cap)
   }
 
   if (helix_is_active() && cap->oap->op_type == OP_NOP) {
+    helix_ensure_anchor(curwin->w_cursor);
     for (n = cap->count1; n > 0; n--) {
       if (oneleft() == false) {
         break;
       }
     }
-    helix_selection_init();
+    helix_selection_extend_inclusive(curwin->w_cursor);
     return;
   }
 
@@ -3882,12 +3884,13 @@ static void nv_up(cmdarg_T *cap)
   }
 
   if (helix_is_active() && cap->oap->op_type == OP_NOP) {
+    helix_ensure_anchor(curwin->w_cursor);
     if (cursor_up(cap->count1, true) != false) {
       if (cap->arg) {
         beginline(BL_WHITE | BL_FIX);
       }
     }
-    helix_selection_init();
+    helix_selection_extend_inclusive(curwin->w_cursor);
     return;
   }
 
@@ -3911,12 +3914,13 @@ static void nv_down(cmdarg_T *cap)
   }
 
   if (helix_is_active() && cap->oap->op_type == OP_NOP) {
+    helix_ensure_anchor(curwin->w_cursor);
     if (cursor_down(cap->count1, true) != false) {
       if (cap->arg) {
         beginline(BL_WHITE | BL_FIX);
       }
     }
-    helix_selection_init();
+    helix_selection_extend_inclusive(curwin->w_cursor);
     return;
   }
 

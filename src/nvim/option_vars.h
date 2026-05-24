@@ -177,8 +177,7 @@ enum {
   SHM_COMPLETIONSCAN = 'C',  ///< Completion scanning messages.
   SHM_RECORDING      = 'q',  ///< No recording message.
   SHM_FILEINFO       = 'F',  ///< No file info messages.
-  SHM_SEARCHCOUNT    = 'S',  ///< No search stats: '[1/10]'.
-  SHM_UNDO           = 'u',  ///< No undo messages.
+  SHM_SEARCHCOUNT    = 'S',  ///< No search stats: '[1/10]'
 };
 /// Represented by 'a' flag.
 #define SHM_ALL_ABBREVIATIONS ((char[]) { \
@@ -256,6 +255,9 @@ enum {
 //
 // TODO(famiu): Remove this when refcounted strings are used for string options.
 EXTERN char empty_string_option[] INIT( = "");
+
+// Paradigm option constants
+#define HELIX_MODE() (p_pdm != NULL && *p_pdm == 'h')
 
 // The following are actual variables for the options
 
@@ -446,6 +448,7 @@ EXTERN OptInt p_mouset;         ///< 'mousetime'
 EXTERN int p_more;              ///< 'more'
 EXTERN char *p_nf;              ///< 'nrformats'
 EXTERN char *p_opfunc;          ///< 'operatorfunc'
+EXTERN char *p_pdm;             ///< 'paradigm'
 EXTERN char *p_para;            ///< 'paragraphs'
 EXTERN int p_paste;             ///< 'paste'
 EXTERN char *p_pex;             ///< 'patchexpr'
@@ -473,7 +476,6 @@ EXTERN char *p_rtp;             ///< 'runtimepath'
 EXTERN OptInt p_scbk;           ///< 'scrollback'
 EXTERN OptInt p_sj;             ///< 'scrolljump'
 EXTERN OptInt p_so;             ///< 'scrolloff'
-EXTERN OptInt p_sop;            ///< 'scrolloffpad'
 EXTERN char *p_sbo;             ///< 'scrollopt'
 EXTERN char *p_sections;        ///< 'sections'
 EXTERN int p_secure;            ///< 'secure'
@@ -554,7 +556,6 @@ EXTERN char *p_tsr;             ///< 'thesaurus'
 EXTERN int p_tgc;               ///< 'termguicolors'
 EXTERN int p_ttimeout;          ///< 'ttimeout'
 EXTERN OptInt p_ttm;            ///< 'ttimeoutlen'
-EXTERN int p_tf;                ///< 'ttyfast'
 EXTERN char *p_udir;            ///< 'undodir'
 EXTERN int p_udf;               ///< 'undofile'
 EXTERN OptInt p_ul;             ///< 'undolevels'

@@ -519,6 +519,9 @@ void normal_enter(bool cmdwin, bool noexmode)
   state.cmdwin = cmdwin;
   state.noexmode = noexmode;
   state.toplevel = (!cmdwin || cmdwin_result == 0) && !noexmode;
+  if (HELIX_MODE()) {
+    helix_selection_init();
+  }
   state_enter(&state.state);
   current_oap = prev_oap;
 }
@@ -1326,6 +1329,16 @@ static void normal_check_text_changed(NormalState *s)
   }
 }
 
+static void normal_check_buffer_modified(NormalState *s)
+{
+  // Trigger BufModified if 'modified' changed.
+  if (!finish_op && has_event(EVENT_BUFMODIFIEDSET)
+      && curbuf->b_changed_invalid == true) {
+    apply_autocmds(EVENT_BUFMODIFIEDSET, NULL, NULL, false, curbuf);
+    curbuf->b_changed_invalid = false;
+  }
+}
+
 /// If nothing is pending and we are going to wait for the user to
 /// type a character, trigger SafeState.
 static void normal_check_safe_state(NormalState *s)
@@ -1441,6 +1454,7 @@ static int normal_check(VimState *state)
     normal_check_cursor_moved(s);
     normal_check_text_changed(s);
     normal_check_window_scrolled(s);
+    normal_check_buffer_modified(s);
     normal_check_safe_state(s);
 
     // Updating diffs from changed() does not always work properly,
@@ -1819,7 +1833,6 @@ void clearop(oparg_T *oap)
   oap->regname = 0;
   oap->motion_force = NUL;
   oap->use_reg_one = false;
-  oap->restore_cursor = false;
   motion_force = NUL;
 }
 
@@ -1898,8 +1911,7 @@ void clear_showcmd(void)
       // Make 'sbr' empty for a moment to get the correct size.
       p_sbr = empty_string_option;
       curwin->w_p_sbr = empty_string_option;
-      getvcols(curwin, &curwin->w_cursor, &VIsual,
-               &leftcol, &rightcol, GETVCOL_END_EXCL_LBR);
+      getvcols(curwin, &curwin->w_cursor, &VIsual, &leftcol, &rightcol);
       p_sbr = saved_sbr;
       curwin->w_p_sbr = saved_w_sbr;
       snprintf(showcmd_buf, SHOWCMD_BUFLEN, "%" PRId64 "x%" PRId64,
@@ -2877,7 +2889,7 @@ static void nv_zet(cmdarg_T *cap)
       if (hasFolding(curwin, curwin->w_cursor.lnum, NULL, NULL)) {
         col = 0;                        // like the cursor is in col 0
       } else {
-        getvcol(curwin, &curwin->w_cursor, &col, NULL, NULL, 0);
+        getvcol(curwin, &curwin->w_cursor, &col, NULL, NULL);
       }
       if (col > siso) {
         col -= (int)siso;
@@ -2897,7 +2909,7 @@ static void nv_zet(cmdarg_T *cap)
       if (hasFolding(curwin, curwin->w_cursor.lnum, NULL, NULL)) {
         col = 0;                        // like the cursor is in col 0
       } else {
-        getvcol(curwin, &curwin->w_cursor, NULL, NULL, &col, 0);
+        getvcol(curwin, &curwin->w_cursor, NULL, NULL, &col);
       }
       int n = curwin->w_view_width - win_col_off(curwin);
       if (col + siso < n) {
@@ -3623,7 +3635,7 @@ bool get_visual_text(cmdarg_T *cap, char **pp, size_t *lenp)
 static void nv_tagpop(cmdarg_T *cap)
 {
   if (!checkclearopq(cap->oap)) {
-    do_tag(NULL, "", DT_POP, cap->count1, false, true);
+    do_tag("", DT_POP, cap->count1, false, true);
   }
 }
 
@@ -3717,6 +3729,16 @@ static void nv_right(cmdarg_T *cap)
     return;
   }
 
+  if (helix_is_active() && cap->oap->op_type == OP_NOP) {
+    for (n = cap->count1; n > 0; n--) {
+      if (oneright() == false) {
+        break;
+      }
+    }
+    helix_selection_init();
+    return;
+  }
+
   cap->oap->motion_type = kMTCharWise;
   cap->oap->inclusive = false;
   bool past_line = (VIsual_active && *p_sel != 'o');
@@ -3795,6 +3817,16 @@ static void nv_left(cmdarg_T *cap)
     return;
   }
 
+  if (helix_is_active() && cap->oap->op_type == OP_NOP) {
+    for (n = cap->count1; n > 0; n--) {
+      if (oneleft() == false) {
+        break;
+      }
+    }
+    helix_selection_init();
+    return;
+  }
+
   cap->oap->motion_type = kMTCharWise;
   cap->oap->inclusive = false;
   for (n = cap->count1; n > 0; n--) {
@@ -3849,6 +3881,16 @@ static void nv_up(cmdarg_T *cap)
     return;
   }
 
+  if (helix_is_active() && cap->oap->op_type == OP_NOP) {
+    if (cursor_up(cap->count1, true) != false) {
+      if (cap->arg) {
+        beginline(BL_WHITE | BL_FIX);
+      }
+    }
+    helix_selection_init();
+    return;
+  }
+
   cap->oap->motion_type = kMTLineWise;
   if (cursor_up(cap->count1, cap->oap->op_type == OP_NOP) == false) {
     clearopbeep(cap->oap);
@@ -3865,7 +3907,20 @@ static void nv_down(cmdarg_T *cap)
     // <S-Down> is page down
     cap->arg = FORWARD;
     nv_page(cap);
-  } else if (bt_quickfix(curbuf) && cap->cmdchar == CAR) {
+    return;
+  }
+
+  if (helix_is_active() && cap->oap->op_type == OP_NOP) {
+    if (cursor_down(cap->count1, true) != false) {
+      if (cap->arg) {
+        beginline(BL_WHITE | BL_FIX);
+      }
+    }
+    helix_selection_init();
+    return;
+  }
+
+  if (bt_quickfix(curbuf) && cap->cmdchar == CAR) {
     // Quickfix window only: view the result under the cursor.
     qf_view_result(false);
   } else {
@@ -3938,6 +3993,15 @@ static void nv_end(cmdarg_T *cap)
 /// Handle the "$" command.
 static void nv_dollar(cmdarg_T *cap)
 {
+  if (helix_is_active() && cap->oap->op_type == OP_NOP) {
+    helix_ensure_anchor(curwin->w_cursor);
+    curwin->w_curswant = MAXCOL;
+    cursor_down(cap->count1 - 1, true);
+    coladvance(curwin, MAXCOL);
+    helix_selection_extend_inclusive(curwin->w_cursor);
+    return;
+  }
+
   cap->oap->motion_type = kMTCharWise;
   cap->oap->inclusive = true;
   // In virtual mode when off the edge of a line and an operator
@@ -3979,9 +4043,13 @@ static void nv_search(cmdarg_T *cap)
     return;
   }
 
-  normal_search(cap, cap->cmdchar, cap->searchbuf, strlen(cap->searchbuf),
-                (cap->arg || !equalpos(save_cursor, curwin->w_cursor))
-                ? 0 : SEARCH_MARK, NULL);
+  int i = normal_search(cap, cap->cmdchar, cap->searchbuf, strlen(cap->searchbuf),
+                        (cap->arg || !equalpos(save_cursor, curwin->w_cursor))
+                        ? 0 : SEARCH_MARK, NULL);
+  if (helix_is_active() && i > 0) {
+    helix_ensure_anchor(save_cursor);
+    helix_selection_extend_inclusive(curwin->w_cursor);
+  }
 }
 
 /// Handle "N" and "n" commands.
@@ -3999,6 +4067,11 @@ static void nv_next(cmdarg_T *cap)
     cap->count1 += 1;
     normal_search(cap, 0, NULL, 0, SEARCH_MARK | cap->arg, NULL);
     cap->count1 -= 1;
+  }
+
+  if (helix_is_active() && i > 0) {
+    helix_ensure_anchor(old);
+    helix_selection_extend_inclusive(curwin->w_cursor);
   }
 
   // Redraw the window to refresh the highlighted matches.
@@ -4087,7 +4160,7 @@ static void nv_csearch(cmdarg_T *cap)
       && (t_cmd || cap->oap->op_type != OP_NOP)) {
     colnr_T scol, ecol;
 
-    getvcol(curwin, &curwin->w_cursor, &scol, NULL, &ecol, 0);
+    getvcol(curwin, &curwin->w_cursor, &scol, NULL, &ecol);
     curwin->w_cursor.coladd = ecol - scol;
   } else {
     curwin->w_cursor.coladd = 0;
@@ -4444,6 +4517,16 @@ static void nv_mark(cmdarg_T *cap)
 /// cmd->arg is BACKWARD for "{" and FORWARD for "}".
 static void nv_findpar(cmdarg_T *cap)
 {
+  if (helix_is_active() && cap->oap->op_type == OP_NOP) {
+    helix_ensure_anchor(curwin->w_cursor);
+    bool inclusive = false;
+    if (findpar(&inclusive, cap->arg, cap->count1, NUL, false)) {
+      curwin->w_cursor.coladd = 0;
+    }
+    helix_selection_extend_inclusive(curwin->w_cursor);
+    return;
+  }
+
   cap->oap->motion_type = kMTCharWise;
   cap->oap->inclusive = false;
   cap->oap->use_reg_one = true;
@@ -4640,7 +4723,7 @@ static void v_swap_corners(int cmdchar)
 
   if (cmdchar == 'O' && VIsual_mode == Ctrl_V) {
     pos_T old_cursor = curwin->w_cursor;
-    getvcols(curwin, &old_cursor, &VIsual, &left, &right, 0);
+    getvcols(curwin, &old_cursor, &VIsual, &left, &right);
     curwin->w_cursor.lnum = VIsual.lnum;
     coladvance(curwin, left);
     VIsual = curwin->w_cursor;
@@ -5168,7 +5251,7 @@ static void nv_suspend(cmdarg_T *cap)
   if (VIsual_active) {
     end_visual_mode();                  // stop Visual mode
   }
-  do_cmdline_cmd("stop");
+  do_cmdline_cmd("st");
 }
 
 /// "gv": Reselect the previous Visual area.  If Visual already active,
@@ -5357,7 +5440,7 @@ static void nv_g_dollar_cmd(cmdarg_T *cap)
     if (curwin->w_cursor.col > 0 && utf_ptr2cells(get_cursor_pos_ptr()) > 1) {
       colnr_T vcol;
 
-      getvvcol(curwin, &curwin->w_cursor, NULL, NULL, &vcol, 0);
+      getvvcol(curwin, &curwin->w_cursor, NULL, NULL, &vcol);
       if (vcol >= curwin->w_leftcol + curwin->w_view_width - col_off) {
         curwin->w_cursor.col--;
       }
@@ -5841,6 +5924,20 @@ static void nv_operator(cmdarg_T *cap)
 {
   int op_type = get_op_type(cap->cmdchar, cap->nchar);
 
+  if (helix_is_active()) {
+    if (bt_prompt(curbuf) && op_is_change(op_type)
+        && !prompt_curpos_editable()) {
+      clearopbeep(cap->oap);
+      return;
+    }
+    bool enter_insert = helix_apply_operator(cap->cmdchar);
+    if (enter_insert) {
+      restart_edit = 'a';
+      edit('a', false, 1);
+    }
+    return;
+  }
+
   if (bt_prompt(curbuf) && op_is_change(op_type)
       && !prompt_curpos_editable()) {
     clearopbeep(cap->oap);
@@ -5878,7 +5975,7 @@ static void set_op_var(int optype)
 
 /// Handle linewise operator "dd", "yy", etc.
 ///
-/// "_" is a strange motion command that helps make operators more logical.
+/// "_" is is a strange motion command that helps make operators more logical.
 /// It is actually implemented, but not documented in the real Vi.  This motion
 /// command actually refers to "the current line".  Commands like "dd" and "yy"
 /// are really an alternate form of "d_" and "y_".  It does accept a count, so
@@ -5935,6 +6032,13 @@ static void nv_pipe(cmdarg_T *cap)
 /// cap->arg is 1 for "B"
 static void nv_bck_word(cmdarg_T *cap)
 {
+  if (helix_is_active() && cap->oap->op_type == OP_NOP) {
+    helix_ensure_anchor(curwin->w_cursor);
+    bck_word(cap->count1, cap->arg, false);
+    helix_selection_extend_inclusive(curwin->w_cursor);
+    return;
+  }
+
   cap->oap->motion_type = kMTCharWise;
   cap->oap->inclusive = false;
   curwin->w_set_curswant = true;
@@ -5953,6 +6057,25 @@ static void nv_wordcmd(cmdarg_T *cap)
   bool word_end;
   bool flag = false;
   pos_T startpos = curwin->w_cursor;
+
+  if (helix_is_active() && cap->oap->op_type == OP_NOP) {
+    helix_ensure_anchor(curwin->w_cursor);
+    word_end = (cap->cmdchar == 'e' || cap->cmdchar == 'E');
+    if (word_end) {
+      end_word(cap->count1, cap->arg, false, false);
+    } else {
+      fwd_word(cap->count1, cap->arg, false);
+    }
+    if (lt(startpos, curwin->w_cursor)) {
+      adjust_cursor(cap->oap);
+    }
+    if (word_end) {
+      helix_selection_extend_inclusive(curwin->w_cursor);
+    } else {
+      helix_selection_extend(curwin->w_cursor);
+    }
+    return;
+  }
 
   // Set inclusive for the "E" and "e" command.
   if (cap->cmdchar == 'e' || cap->cmdchar == 'E') {
@@ -6030,6 +6153,13 @@ static void adjust_cursor(oparg_T *oap)
 /// cap->arg is the argument for beginline().
 static void nv_beginline(cmdarg_T *cap)
 {
+  if (helix_is_active() && cap->oap->op_type == OP_NOP) {
+    helix_ensure_anchor(curwin->w_cursor);
+    beginline(cap->arg);
+    helix_selection_extend_inclusive(curwin->w_cursor);
+    return;
+  }
+
   cap->oap->motion_type = kMTCharWise;
   cap->oap->inclusive = false;
   beginline(cap->arg);
@@ -6078,7 +6208,7 @@ bool unadjust_for_sel_inner(pos_T *pp)
     mark_mb_adjustpos(curbuf, pp);
     if (virtual_active(curwin)) {
       colnr_T cs, ce;
-      getvcol(curwin, pp, &cs, NULL, &ce, 0);
+      getvcol(curwin, pp, &cs, NULL, &ce);
       pp->coladd = ce - cs;
     }
   } else if (pp->lnum > 1) {
@@ -6114,6 +6244,20 @@ static void nv_goto(cmdarg_T *cap)
   } else {
     lnum = 1;
   }
+
+  if (helix_is_active() && cap->oap->op_type == OP_NOP) {
+    helix_ensure_anchor(curwin->w_cursor);
+    if (cap->count0 != 0) {
+      lnum = cap->count0;
+    }
+    lnum = MIN(MAX(lnum, 1), curbuf->b_ml.ml_line_count);
+    setpcmark();
+    curwin->w_cursor.lnum = lnum;
+    beginline(BL_SOL | BL_FIX);
+    helix_selection_extend_inclusive(curwin->w_cursor);
+    return;
+  }
+
   cap->oap->motion_type = kMTLineWise;
   setpcmark();
 
@@ -6185,6 +6329,12 @@ static void nv_esc(cmdarg_T *cap)
     // vgetorpeek() will repeatedly return ESC.  Exit the cmdline window to
     // break the loop.
     cmdwin_result = K_IGNORE;
+    return;
+  }
+
+  if (helix_is_active() && current_helix_sel.has_selection) {
+    helix_selection_collapse();
+    redraw_curbuf_later(UPD_SOME_VALID);
     return;
   }
 
@@ -6356,9 +6506,6 @@ static void nv_object(cmdarg_T *cap)
     break;
   case 'p':       // "ap" = a paragraph
     flag = current_par(cap->oap, cap->count1, include, 'p');
-    break;
-  case 'l':       // "il" = inner line, "al" = all lines
-    flag = current_line(cap->oap, include);
     break;
   case 's':       // "as" = a sentence
     flag = current_sent(cap->oap, cap->count1, include);

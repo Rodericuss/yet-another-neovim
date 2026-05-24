@@ -1806,7 +1806,7 @@ void adjust_cursor_eol(void)
     colnr_T scol, ecol;
 
     // Coladd is set to the width of the last character.
-    getvcol(curwin, &curwin->w_cursor, &scol, NULL, &ecol, 0);
+    getvcol(curwin, &curwin->w_cursor, &scol, NULL, &ecol);
     curwin->w_cursor.coladd = ecol - scol + 1;
   }
 }
@@ -2076,9 +2076,6 @@ theend:
   return ret;
 }
 
-/// TODO(zeertzjq): consider using CharSize.tail instead of temporarily
-/// resetting 'linebreak'.
-///
 /// Reset 'linebreak' and take care of side effects.
 /// @return  the previous value, to be passed to restore_lbr().
 bool reset_lbr(void)
@@ -2256,7 +2253,7 @@ void charwise_block_prep(pos_T start, pos_T end, struct block_def *bdp, linenr_T
   if (lnum == start.lnum) {
     startcol = start.col;
     if (virtual_op) {
-      getvcol(curwin, &start, &cs, NULL, &ce, 0);
+      getvcol(curwin, &start, &cs, NULL, &ce);
       if (ce != cs && start.coladd > 0) {
         // Part of a tab selected -- but don't double-count it.
         bdp->start_char_vcols = ce - cs + 1;
@@ -2269,7 +2266,7 @@ void charwise_block_prep(pos_T start, pos_T end, struct block_def *bdp, linenr_T
   if (lnum == end.lnum) {
     endcol = end.col;
     if (virtual_op) {
-      getvcol(curwin, &end, &cs, NULL, &ce, 0);
+      getvcol(curwin, &end, &cs, NULL, &ce);
       if (p[endcol] == NUL || (cs + end.coladd < ce
                                // Don't add space for double-wide
                                // char; endcol will be on last byte
@@ -2463,11 +2460,11 @@ bool do_addsub(int op_type, pos_T *pos, int length, linenr_T Prenum1)
     }
     if (do_bin
         && do_hex
-        && !(col > 0
-             && (ptr[col] == 'X' || ptr[col] == 'x')
-             && ptr[col - 1] == '0'
-             && !utf_head_off(ptr, ptr + col - 1)
-             && ascii_isxdigit(ptr[col + 1]))) {
+        && !((col > 0
+              && (ptr[col] == 'X' || ptr[col] == 'x')
+              && ptr[col - 1] == '0'
+              && !utf_head_off(ptr, ptr + col - 1)
+              && ascii_isxdigit(ptr[col + 1])))) {
       // In case of binary/hexadecimal pattern overlap match, rescan
 
       col = curwin->w_cursor.col;
@@ -2874,7 +2871,7 @@ void cursor_pos_info(dict_T *dict)
         oparg.is_VIsual = true;
         oparg.motion_type = kMTBlockWise;
         oparg.op_type = OP_NOP;
-        getvcols(curwin, &min_pos, &max_pos, &oparg.start_vcol, &oparg.end_vcol, 0);
+        getvcols(curwin, &min_pos, &max_pos, &oparg.start_vcol, &oparg.end_vcol);
         p_sbr = saved_sbr;
         curwin->w_p_sbr = saved_w_sbr;
         if (curwin->w_curswant == MAXCOL) {
@@ -2964,7 +2961,7 @@ void cursor_pos_info(dict_T *dict)
     if (dict == NULL) {
       if (l_VIsual_active) {
         if (l_VIsual_mode == Ctrl_V && curwin->w_curswant < MAXCOL) {
-          getvcols(curwin, &min_pos, &max_pos, &min_pos.col, &max_pos.col, 0);
+          getvcols(curwin, &min_pos, &max_pos, &min_pos.col, &max_pos.col);
           int64_t cols;
           STRICT_SUB(oparg.end_vcol + 1, oparg.start_vcol, &cols, int64_t);
           vim_snprintf(buf1, sizeof(buf1), _("%" PRId64 " Cols; "),
@@ -3133,7 +3130,7 @@ const char *did_set_operatorfunc(optset_T *args FUNC_ATTR_UNUSED)
   return NULL;
 }
 
-#ifdef EXITFREE
+#if defined(EXITFREE)
 void free_operatorfunc_option(void)
 {
   callback_free(&opfunc_cb);
@@ -3216,9 +3213,9 @@ static void get_op_vcol(oparg_T *oap, colnr_T redo_VIsual_vcol, bool initial)
   // prevent from moving onto a trail byte
   mark_mb_adjustpos(curwin->w_buffer, &oap->end);
 
-  getvvcol(curwin, &(oap->start), &oap->start_vcol, NULL, &oap->end_vcol, 0);
+  getvvcol(curwin, &(oap->start), &oap->start_vcol, NULL, &oap->end_vcol);
   if (!redo_VIsual_busy) {
-    getvvcol(curwin, &(oap->end), &start, NULL, &end, 0);
+    getvvcol(curwin, &(oap->end), &start, NULL, &end);
 
     oap->start_vcol = MIN(oap->start_vcol, start);
     if (end > oap->end_vcol) {
@@ -3238,7 +3235,7 @@ static void get_op_vcol(oparg_T *oap, colnr_T redo_VIsual_vcol, bool initial)
     oap->end_vcol = 0;
     for (curwin->w_cursor.lnum = oap->start.lnum;
          curwin->w_cursor.lnum <= oap->end.lnum; curwin->w_cursor.lnum++) {
-      getvvcol(curwin, &curwin->w_cursor, NULL, NULL, &end, 0);
+      getvvcol(curwin, &curwin->w_cursor, NULL, NULL, &end);
       oap->end_vcol = MAX(oap->end_vcol, end);
     }
   } else if (redo_VIsual_busy) {
@@ -3483,11 +3480,13 @@ void do_pending_operator(cmdarg_T *cap, int old_col, bool gui_yank)
           resel_VIsual_vcol = MAXCOL;
         } else {
           if (VIsual_mode != Ctrl_V) {
-            getvvcol(curwin, &(oap->end), NULL, NULL, &oap->end_vcol, 0);
+            getvvcol(curwin, &(oap->end),
+                     NULL, NULL, &oap->end_vcol);
           }
           if (VIsual_mode == Ctrl_V || oap->line_count <= 1) {
             if (VIsual_mode != Ctrl_V) {
-              getvvcol(curwin, &(oap->start), &oap->start_vcol, NULL, NULL, 0);
+              getvvcol(curwin, &(oap->start),
+                       &oap->start_vcol, NULL, NULL);
             }
             resel_VIsual_vcol = oap->end_vcol - oap->start_vcol + 1;
           } else {
@@ -3695,9 +3694,6 @@ void do_pending_operator(cmdarg_T *cap, int old_col, bool gui_yank)
       } else {
         restore_lbr(lbr_saved);
         oap->excl_tr_ws = cap->cmdchar == 'z';
-        if (oap->restore_cursor) {
-          curwin->w_cursor = oap->cursor_start;
-        }
         op_yank(oap, !gui_yank);
       }
       check_cursor_col(curwin);
@@ -3940,4 +3936,58 @@ bcount_t get_region_bytecount(buf_T *buf, linenr_T start_lnum, linenr_T end_lnum
     return deleted_bytes;
   }
   return deleted_bytes + end_col;
+}
+
+/// Apply an operator to the current helix selection.
+/// Returns true if the caller should enter Insert mode (for 'c').
+bool helix_apply_operator(int op_char)
+{
+  int op_type = get_op_type(op_char, NUL);
+
+  oparg_T oap;
+  CLEAR_FIELD(oap);
+  oap.op_type = op_type;
+  oap.motion_type = kMTCharWise;
+  oap.inclusive = current_helix_sel.has_selection ? current_helix_sel.inclusive : true;
+  oap.regname = 0;
+
+  // Ensure start <= end
+  if (!current_helix_sel.has_selection) {
+    // 1-char resting state: operate on char under cursor
+    oap.start = curwin->w_cursor;
+    oap.end = curwin->w_cursor;
+  } else if (lt(current_helix_sel.anchor, current_helix_sel.head)) {
+    oap.start = current_helix_sel.anchor;
+    oap.end = current_helix_sel.head;
+  } else {
+    oap.start = current_helix_sel.head;
+    oap.end = current_helix_sel.anchor;
+  }
+  oap.line_count = oap.end.lnum - oap.start.lnum + 1;
+
+  curwin->w_cursor = oap.start;
+
+  switch (op_type) {
+  case OP_DELETE:
+    op_delete(&oap);
+    break;
+  case OP_YANK:
+    op_yank(&oap, true);
+    curwin->w_cursor = oap.start;
+    helix_selection_init();
+    return false;
+  case OP_CHANGE:
+    op_delete(&oap);
+    helix_selection_collapse();
+    return true;
+  case OP_LSHIFT:
+  case OP_RSHIFT:
+    op_shift(&oap, true, (op_type == OP_LSHIFT) ? -1 : 1);
+    break;
+  default:
+    break;
+  }
+
+  helix_selection_collapse();
+  return false;
 }

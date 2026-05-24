@@ -67,9 +67,9 @@ enum {
 static garray_T highlight_ga = GA_EMPTY_INIT_VALUE;
 
 // arena for object with same lifetime as highlight_ga (aka hl_table)
-static Arena highlight_arena = ARENA_EMPTY;
+Arena highlight_arena = ARENA_EMPTY;
 
-static Map(cstr_t, int) highlight_unames = MAP_INIT;
+Map(cstr_t, int) highlight_unames = MAP_INIT;
 
 /// The "term", "cterm" and "gui" arguments can be any combination of the
 /// following names, separated by commas (but no spaces!).
@@ -112,7 +112,6 @@ typedef struct {
   int sg_rgb_sp_idx;            ///< RGB special color index
 
   int sg_blend;                 ///< blend level (0-100 inclusive), -1 if unset
-  char *sg_font;                ///< font name, NULL if not set
 
   int sg_parent;                ///< parent of @nested.group
 } HlGroup;
@@ -191,6 +190,8 @@ static const char *highlight_init_both[] = {
   "default link TabLineFill      TabLine",
   "default link VertSplit        WinSeparator",
   "default link VisualNOS        Visual",
+  "default link HelixCursor      Cursor",
+  "default link HelixSelection   Visual",
   "default link Whitespace       NonText",
   "default link WildMenu         PmenuSel",
   "default link WinSeparator     Normal",
@@ -218,7 +219,6 @@ static const char *highlight_init_both[] = {
   "default link Debug          Special",
   // Used by HLF_8 (very common). None of the HLF_* things use the other Special* groups.
   "default link SpecialKey     Special",
-  "default link Dimmed         Comment",
   "default link Ignore         Normal",
 
   // Built-in LSP
@@ -1341,16 +1341,8 @@ void do_highlight(const char *line, const bool forceit, const bool init)
             hl_table[idx].sg_gui = attr;
           }
         }
-      } else if (strcmp(key, "FONT") == 0 && (!init || !(hl_table[idx].sg_set & SG_GUI))) {
-        if (!init) {
-          hl_table[idx].sg_set |= SG_GUI;
-        }
-        if (hl_table[idx].sg_font != NULL) {
-          XFREE_CLEAR(hl_table[idx].sg_font);
-        }
-        if (strcmp(arg, "NONE") != 0) {
-          hl_table[idx].sg_font = xstrdup(arg);
-        }
+      } else if (strcmp(key, "FONT") == 0) {
+        // in non-GUI fonts are simply ignored
       } else if (strcmp(key, "CTERMFG") == 0 || strcmp(key, "CTERMBG") == 0) {
         if (!init || !(hl_table[idx].sg_set & SG_CTERM)) {
           if (!init) {
@@ -1530,7 +1522,7 @@ void do_highlight(const char *line, const bool forceit, const bool init)
   }
 }
 
-#ifdef EXITFREE
+#if defined(EXITFREE)
 void free_highlight(void)
 {
   ga_clear(&highlight_ga);
@@ -1584,9 +1576,6 @@ static void highlight_clear(int idx)
   hl_table[idx].sg_rgb_bg_idx = kColorIdxNone;
   hl_table[idx].sg_rgb_sp_idx = kColorIdxNone;
   hl_table[idx].sg_blend = -1;
-  if (hl_table[idx].sg_font != NULL) {
-    XFREE_CLEAR(hl_table[idx].sg_font);
-  }
   // Restore default link and context if they exist. Otherwise clears.
   hl_table[idx].sg_link = hl_table[idx].sg_deflink;
   // Since we set the default link, set the location to where the default
@@ -1632,9 +1621,8 @@ static void highlight_list_one(const int id)
   didh = highlight_list_arg(id, didh, LIST_STRING, 0,
                             coloridx_to_name(sgp->sg_rgb_sp_idx, sgp->sg_rgb_sp, hexbuf), "guisp");
 
-  didh = highlight_list_arg(id, didh, LIST_INT, sgp->sg_blend + 1, NULL, "blend");
-
-  didh = highlight_list_arg(id, didh, LIST_STRING, 0, sgp->sg_font, "font");
+  didh = highlight_list_arg(id, didh, LIST_INT,
+                            sgp->sg_blend + 1, NULL, "blend");
 
   if (sgp->sg_link && !got_int) {
     syn_list_header(didh, 0, id, true);
@@ -1962,10 +1950,6 @@ static void set_hl_attr(int idx)
   at_en.rgb_bg_color = sgp->sg_rgb_bg_idx != kColorIdxNone ? sgp->sg_rgb_bg : -1;
   at_en.rgb_sp_color = sgp->sg_rgb_sp_idx != kColorIdxNone ? sgp->sg_rgb_sp : -1;
   at_en.hl_blend = sgp->sg_blend;
-  // Convert font name to index
-  if (sgp->sg_font != NULL) {
-    at_en.font = hl_add_font_idx(sgp->sg_font);
-  }
 
   sgp->sg_attr = hl_get_syn_attr(0, idx + 1, at_en);
 

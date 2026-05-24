@@ -486,15 +486,7 @@ static void draw_foldcolumn(win_T *wp, winlinevars_T *wlv)
   int fdc = compute_foldcolumn(wp, 0);
   if (fdc > 0) {
     int attr = win_hl_attr(wp, use_cursor_line_highlight(wp, wlv->lnum) ? HLF_CLF : HLF_FC);
-    // Only draw 'foldcolumn' for filler line if lnum is inside a fold that
-    // starts higher up. We don't want to show 'foldopen' or 'foldclose' twice.
-    foldinfo_T fi;
-    if (wlv->filler_todo <= 0 || wlv->foldinfo.fi_lnum < wlv->lnum) {
-      fi = wlv->foldinfo;
-    } else {
-      fi = (foldinfo_T){ 0 };
-    }
-    fill_foldcolumn(wp, fi, wlv->lnum, attr, fdc, &wlv->off, NULL, NULL);
+    fill_foldcolumn(wp, wlv->foldinfo, wlv->lnum, attr, fdc, &wlv->off, NULL, NULL);
   }
 }
 
@@ -1225,7 +1217,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
           if (VIsual_mode == 'V') {       // linewise
             wlv.fromcol = 0;
           } else {
-            getvvcol(wp, top, &wlv.fromcol, NULL, NULL, 0);
+            getvvcol(wp, top, (colnr_T *)&wlv.fromcol, NULL, NULL);
             if (gchar_pos(top) == NUL) {
               wlv.tocol = wlv.fromcol + 1;
             }
@@ -1241,9 +1233,9 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
           } else {
             pos_T pos = *bot;
             if (*p_sel == 'e') {
-              getvvcol(wp, &pos, &wlv.tocol, NULL, NULL, 0);
+              getvvcol(wp, &pos, (colnr_T *)&wlv.tocol, NULL, NULL);
             } else {
-              getvvcol(wp, &pos, NULL, NULL, &wlv.tocol, 0);
+              getvvcol(wp, &pos, NULL, NULL, (colnr_T *)&wlv.tocol);
               wlv.tocol++;
             }
           }
@@ -1261,6 +1253,37 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
         area_highlighting = true;
         vi_attr = win_hl_attr(wp, HLF_V);
       }
+      // handle helix paradigm selection highlighting
+    } else if (helix_is_active() && current_helix_sel.has_selection
+               && wp == curwin && !has_foldtext) {
+      pos_T sel_top, sel_bot;
+      if (ltoreq(current_helix_sel.anchor, current_helix_sel.head)) {
+        sel_top = current_helix_sel.anchor;
+        sel_bot = current_helix_sel.head;
+      } else {
+        sel_top = current_helix_sel.head;
+        sel_bot = current_helix_sel.anchor;
+      }
+      if (lnum >= sel_top.lnum && lnum <= sel_bot.lnum) {
+        if (lnum > sel_top.lnum && lnum < sel_bot.lnum) {
+          wlv.fromcol = 0;
+          wlv.tocol = MAXCOL;
+        } else {
+          if (lnum == sel_top.lnum) {
+            getvvcol(wp, &sel_top, &wlv.fromcol, NULL, NULL, 0);
+          } else {
+            wlv.fromcol = 0;
+          }
+          if (lnum == sel_bot.lnum) {
+            getvvcol(wp, &sel_bot, NULL, NULL, &wlv.tocol, 0);
+            wlv.tocol++;
+          } else {
+            wlv.tocol = MAXCOL;
+          }
+        }
+        area_highlighting = true;
+        vi_attr = win_hl_attr(wp, HLF_V);
+      }
       // handle 'incsearch' and ":s///c" highlighting
     } else if (highlight_match
                && wp == curwin
@@ -1268,7 +1291,8 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
                && lnum >= curwin->w_cursor.lnum
                && lnum <= curwin->w_cursor.lnum + search_match_lines) {
       if (lnum == curwin->w_cursor.lnum) {
-        getvcol(curwin, &(curwin->w_cursor), &wlv.fromcol, NULL, NULL, 0);
+        getvcol(curwin, &(curwin->w_cursor),
+                (colnr_T *)&wlv.fromcol, NULL, NULL);
       } else {
         wlv.fromcol = 0;
       }
@@ -1277,7 +1301,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
           .lnum = lnum,
           .col = search_match_endcol,
         };
-        getvcol(curwin, &pos, &wlv.tocol, NULL, NULL, 0);
+        getvcol(curwin, &pos, (colnr_T *)&wlv.tocol, NULL, NULL);
       }
       // do at least one character; happens when past end of line
       if (wlv.fromcol == wlv.tocol && search_match_endcol) {
@@ -1708,10 +1732,7 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
 
       if (wp == cmdwin_win) {
         // Draw the cmdline character.
-        draw_col_fill(&wlv,
-                      schar_from_ascii(wlv.row == wlv.startrow ? cmdwin_type : ' '),
-                      1,
-                      wlv.row == wlv.startrow ? win_hl_attr(wp, HLF_AT) : 0);
+        draw_col_fill(&wlv, schar_from_ascii(cmdwin_type), 1, win_hl_attr(wp, HLF_AT));
       }
 
       if (wlv.filler_todo > 0) {
@@ -2341,7 +2362,6 @@ int win_line(win_T *wp, linenr_T lnum, int startrow, int endrow, int col_rows, b
           CharsizeArg csarg;
           // lnum == 0, do not want virtual text to be counted here
           CSType cstype = init_charsize_arg(&csarg, wp, 0, line);
-          // TODO(zeertzjq): consider using CharSize.tail here
           wlv.n_extra = win_charsize(cstype, wlv.vcol, p, utf_ptr2CharInfo(p).value,
                                      &csarg).width - 1;
 

@@ -88,7 +88,7 @@ end
 local options = {
   cstr = cstr,
   --- @type string[]
-  valid_scopes = { 'global', 'buf', 'win', 'tab' },
+  valid_scopes = { 'global', 'buf', 'win' },
   --- @type vim.option_meta[]
   --- The order of the options MUST be alphabetic for ":set all".
   options = {
@@ -322,10 +322,10 @@ local options = {
       defaults = false,
       desc = [=[
         Write the contents of the file, if it has been modified, on each
-        `:next`, `:rewind`, `:last`, `:first`, `:previous`, `:tag`, `:stop`,
-        `:suspend`, `:!`, `:make`, `:terminal`, CTRL-] or CTRL-^ command; and
-        when a `:buffer`, CTRL-O, CTRL-I, '{A-Z0-9}, or `{A-Z0-9} command
-        switches to another file.
+        `:next`, `:rewind`, `:last`, `:first`, `:previous`, `:stop`,
+        `:suspend`, `:tag`, `:!`, `:make`, CTRL-] and CTRL-^ command; and when
+        a `:buffer`, CTRL-O, CTRL-I, '{A-Z0-9}, or `{A-Z0-9} command takes one
+        to another file.
         A buffer is not written if it becomes hidden, e.g. when 'bufhidden' is
         set to "hide" and `:next` is used.
         Note that for some commands the 'autowrite' option is not used, see
@@ -346,8 +346,8 @@ local options = {
       abbreviation = 'awa',
       defaults = false,
       desc = [=[
-        Like 'autowrite', but also used for commands `:edit`, `:enew`,
-        `:quit`, `:qall`, `:exit`, `:xit`, `:recover` and closing the Vim
+        Like 'autowrite', but also used for commands ":edit", ":enew",
+        ":quit", ":qall", ":exit", ":xit", ":recover" and closing the Vim
         window.
         Setting this option also implies that Vim behaves like 'autowrite' has
         been set.
@@ -366,7 +366,7 @@ local options = {
       desc = [=[
         When set to "dark" or "light", adjusts the default color groups for
         that background type.  The |TUI| or other UI sets this on startup
-        if it can detect the background color.
+        (triggering |OptionSet|) if it can detect the background color.
 
         This option does NOT change the background color, it tells Nvim what
         the "inherited" (terminal/GUI) background looks like.
@@ -1339,8 +1339,8 @@ local options = {
       desc = [=[
         Number of screen lines to use for the command-line.  Helps avoiding
         |hit-enter| prompts.
-        The value of this option is stored with the tabpage, so that each
-        tabpage can have a different value.
+        The value of this option is stored with the tab page, so that each tab
+        page can have a different value.
 
         When 'cmdheight' is zero, there is no command-line unless it is being
         used.  The command-line will cover the last line of the screen when
@@ -1350,7 +1350,7 @@ local options = {
       ]=],
       full_name = 'cmdheight',
       redraw = { 'all_windows' },
-      scope = { 'global', 'tab' },
+      scope = { 'global' },
       short_desc = N_('number of lines to use for the command-line'),
       type = 'number',
       varname = 'p_ch',
@@ -1591,18 +1591,17 @@ local options = {
       cb = 'did_set_completeopt',
       defaults = 'menu,popup',
       values = {
-        'fuzzy',
-        'longest',
         'menu',
         'menuone',
-        'nearest',
+        'longest',
+        'preview',
+        'popup',
         'noinsert',
         'noselect',
+        'fuzzy',
         'nosort',
-        'popup',
         'preinsert',
-        'preselect',
-        'preview',
+        'nearest',
       },
       flags = true,
       deny_duplicates = true,
@@ -1652,7 +1651,8 @@ local options = {
         	    "menu" or "menuone". No effect if "longest" is present.
 
            noselect Same as "noinsert", except that no menu item is
-        	    pre-selected.  Takes precedence over "noinsert". Enabled
+        	    pre-selected.  If both "noinsert" and "noselect" are
+        	    present, "noselect" takes precedence.  This is enabled
         	    automatically when 'autocomplete' is on, unless
         	    "preinsert" is also enabled.
 
@@ -1674,23 +1674,12 @@ local options = {
         	    'ignorecase' is set without 'infercase'.
         	    See also |preinserted()|.
 
-           preselect
-        	    When one of |complete-items| has its "preselect" field set
-        	    (e.g., as indicated by an LSP server), select the first
-        	    such item in the |popupmenu-completion|. Takes precedence
-        	    over "noselect".
-
-        	    Unlike the implicit selection behavior (when "noselect" is
-        	    not set), this preserves the original sort order and
-        	    navigates to the preselect item rather than always
-        	    selecting the first item.
-
            preview  Show extra information about the currently selected
         	    completion in the preview window.  Only works in
         	    combination with "menu" or "menuone".
 
-        Only "fuzzy", "longest", "popup", "preinsert", "preselect" and
-        "preview" have an effect when 'autocomplete' is enabled.
+        Only "fuzzy", "longest", "popup", "preinsert" and "preview" have an
+        effect when 'autocomplete' is enabled.
 
         This option does not apply to |cmdline-completion|.  See 'wildoptions'
         for that.
@@ -2393,7 +2382,7 @@ local options = {
 
         	closeoff	When a window is closed where 'diff' is set
         			and there is only one window remaining in the
-        			same tabpage with 'diff' set, execute
+        			same tab page with 'diff' set, execute
         			`:diffoff` in that window.  This undoes a
         			`:diffsplit` command.
 
@@ -3297,8 +3286,7 @@ local options = {
         |String| and is the |:find| command argument.  The second argument is
         a |Boolean| and is set to |v:true| when the function is called to get
         a List of command-line completion matches for the |:find| command.
-        The function should return a List, which is handled similarly to the
-        return value of a |:command-completion-customlist| function.
+        The function should return a List of strings.
 
         The function is called only once per |:find| command invocation.
         The function can process all the directories specified in 'path'.
@@ -4134,9 +4122,9 @@ local options = {
         							*'go-d'*
           'd'	Use dark theme variant if available.
         							*'go-e'*
-          'e'	Add tabpages when indicated with 'showtabline'.
+          'e'	Add tab pages when indicated with 'showtabline'.
         	'guitablabel' can be used to change the text in the labels.
-        	When 'e' is missing a non-GUI tabpages line may be used.
+        	When 'e' is missing a non-GUI tab pages line may be used.
         	The GUI tabs are only supported on some systems, currently
         	Mac OS/X and MS-Windows.
         							*'go-i'*
@@ -4204,9 +4192,9 @@ local options = {
       abbreviation = 'gtl',
       defaults = '',
       desc = [=[
-        When non-empty describes the text to use in a label of the GUI
-        tabpages line.  When empty and when the result is empty Vim will use
-        a default label.  See |setting-guitablabel| for more info.
+        When non-empty describes the text to use in a label of the GUI tab
+        pages line.  When empty and when the result is empty Vim will use a
+        default label.  See |setting-guitablabel| for more info.
 
         The format of this option is like that of 'statusline'.
         'guitabtooltip' is used for the tooltip, see below.
@@ -4214,15 +4202,15 @@ local options = {
         modeline, see |sandbox-option|.
         This option cannot be set in a modeline when 'modelineexpr' is off.
 
-        Only used when the GUI tabpages line is displayed.  'e' must be
-        present in 'guioptions'.  For the non-GUI tabpages line 'tabline' is
+        Only used when the GUI tab pages line is displayed.  'e' must be
+        present in 'guioptions'.  For the non-GUI tab pages line 'tabline' is
         used.
       ]=],
       full_name = 'guitablabel',
       modelineexpr = true,
       redraw = { 'current_window' },
       scope = { 'global' },
-      short_desc = N_('GUI: custom label for a tabpage'),
+      short_desc = N_('GUI: custom label for a tab page'),
       type = 'string',
       immutable = true,
     },
@@ -4230,8 +4218,8 @@ local options = {
       abbreviation = 'gtt',
       defaults = '',
       desc = [=[
-        When non-empty describes the text to use in a tooltip for the GUI
-        tabpages line.  When empty Vim will use a default tooltip.
+        When non-empty describes the text to use in a tooltip for the GUI tab
+        pages line.  When empty Vim will use a default tooltip.
         This option is otherwise just like 'guitablabel' above.
         You can include a line break.  Simplest method is to use |:let|: >vim
         	let &guitabtooltip = "line one\nline two"
@@ -4242,7 +4230,7 @@ local options = {
       modelineexpr = true,
       redraw = { 'current_window' },
       scope = { 'global' },
-      short_desc = N_('GUI: custom tooltip for a tabpage'),
+      short_desc = N_('GUI: custom tooltip for a tab page'),
       type = 'string',
       immutable = true,
     },
@@ -4681,8 +4669,7 @@ local options = {
         command line has no uppercase characters, the added character is
         converted to lowercase.
         CTRL-R CTRL-W can be used to add the word at the end of the current
-        match, excluding the characters that were already typed (starting from
-        the beginning of the word).
+        match, excluding the characters that were already typed.
       ]=],
       full_name = 'incsearch',
       scope = { 'global' },
@@ -5447,7 +5434,7 @@ local options = {
         		combine it with "tab:", for example: >vim
         			set listchars+=tab:>-,lead:.
         <
-                                        *lcs-leadmultispace* *indent-guides*
+        						*lcs-leadmultispace*
           leadmultispace:c...
         		Like the |lcs-multispace| value, but for leading
         		spaces only.  Also overrides |lcs-lead| for leading
@@ -5458,13 +5445,6 @@ local options = {
         <
         		Where "XXX" denotes the first non-blank characters in
         		the line.
-
-                        Combined with |lcs-leadtab|, this can be used to show
-                        "indentation guides" (vertical lines).
-        		For example, with 'shiftwidth' 2: >vim
-        			set list listchars=leadtab:\ \ │,tab:\ \ │,leadmultispace:\ \ │
-        <		For richer rendering (per-level colors, treesitter-aware
-        		scopes, etc.) use a third-party plugin.
         						*lcs-leadtab*
           leadtab:xy[z]
         		Like |lcs-tab|, but only for leading tabs.  When
@@ -6062,10 +6042,7 @@ local options = {
         		be acted upon, i.e. no cursor move.  This implies of
         		course, that right clicking outside a selection will
         		end Visual mode.
-
-        For a detailed description of 'mousemodel' behaviour see
-        |mouse-mode-table|.  Overview of what button does what for each model:
-
+        Overview of what button does what for each model:
         mouse		    extend		popup(_setpos) ~
         left click	    place cursor	place cursor
         left drag	    start selection	start selection
@@ -6432,6 +6409,24 @@ local options = {
       short_desc = N_('list of directories used for packages'),
       type = 'string',
       varname = 'p_pp',
+    },
+    {
+      abbreviation = 'pdm',
+      defaults = 'vim',
+      values = { 'vim', 'helix' },
+      desc = [=[
+        Sets the editing paradigm for Normal mode.
+        'vim'   Traditional operator-first (verb-noun) editing. Default.
+        'helix' Selection-first (noun-verb) editing, inspired by Helix.
+                Every motion creates a selection. Verbs operate on the
+                active selection. mode() still returns 'n' for plugin
+                compatibility.
+      ]=],
+      full_name = 'paradigm',
+      scope = { 'global' },
+      short_desc = N_('editing paradigm for Normal mode'),
+      type = 'string',
+      varname = 'p_pdm',
     },
     {
       abbreviation = 'para',
@@ -7192,9 +7187,9 @@ local options = {
         Maximum number of lines kept beyond the visible screen. Lines at the
         top are deleted if new lines exceed this limit.
         Minimum is 1, maximum is 1000000.
-        Only in |terminal| and |prompt-buffer| buffers.
+        Only in |terminal| buffers.
 
-        Note: Lines that are not visible and kept in terminal scrollback are not
+        Note: Lines that are not visible and kept in scrollback are not
         reflown when the terminal buffer is resized horizontally.
       ]=],
       full_name = 'scrollback',
@@ -7248,8 +7243,8 @@ local options = {
         Minimal number of screen lines to keep above and below the cursor.
         This will make some context visible around where you are working.  If
         you set it to a very large value (999) the cursor line will always be
-        in the middle of the window (except at the start or end of the file,
-        see 'scrolloffpad', or when long lines wrap).
+        in the middle of the window (except at the start or end of the file or
+        when long lines wrap).
         After using the local value, go back the global value with one of
         these two: >vim
         	setlocal scrolloff<
@@ -7261,35 +7256,6 @@ local options = {
       short_desc = N_('minimum nr. of lines above and below cursor'),
       type = 'number',
       varname = 'p_so',
-    },
-    {
-      abbreviation = 'sop',
-      defaults = 0,
-      desc = [=[
-        When 'scrolloff' and 'scrolloffpad' are greater than zero, allow
-        the cursor to remain centered when at the end of the file.
-        Normally, 'scrolloff' will not keep the cursor centered at the
-        end of the file.
-
-        A value of 0 disables this feature.  Any value above 0 enables it.
-        For a window-local value, -1 means to use the global value.
-        Values below -1 are invalid.
-
-        Example: >vim
-        	:set scrolloff=99 scrolloffpad=1
-        <
-
-        After using the local value, go back the global value with one of
-        these two: >vim
-        	setlocal scrolloffpad<
-        	setlocal scrolloffpad=-1
-        <
-      ]=],
-      full_name = 'scrolloffpad',
-      scope = { 'global', 'win' },
-      short_desc = N_('vertically center cursor even at end of file'),
-      type = 'number',
-      varname = 'p_sop',
     },
     {
       abbreviation = 'sbo',
@@ -7464,9 +7430,9 @@ local options = {
         		will become the current directory (useful with
         		projects accessed over a network from different
         		systems)
-           tabpages	all tabpages; without this only the current tabpage
+           tabpages	all tab pages; without this only the current tab page
         		is restored, so that you can make a session for each
-        		tabpage separately
+        		tab page separately
            terminal	include terminal windows where the command can be
         		restored
            winpos	position of the whole Vim window
@@ -7732,7 +7698,6 @@ local options = {
     },
     {
       abbreviation = 'sp',
-      cb = 'did_set_shellpipe_redir',
       defaults = {
         condition = 'MSWIN',
         if_false = '| tee',
@@ -7769,7 +7734,6 @@ local options = {
         Note: When using a pipe like "| tee", you'll lose the exit code of the
         shell command.  This might be configurable by your shell, look for
         the pipefail option (for bash and zsh, use ":set -o pipefail").
-        Only a single "%s" value is allowed.
       ]=],
       full_name = 'shellpipe',
       scope = { 'global' },
@@ -7805,7 +7769,6 @@ local options = {
     },
     {
       abbreviation = 'srr',
-      cb = 'did_set_shellpipe_redir',
       defaults = {
         condition = 'MSWIN',
         if_false = '>',
@@ -7832,8 +7795,6 @@ local options = {
         explicitly set before.
         In the future pipes may be used for filtering and this option will
         become obsolete (at least for Unix).
-        							*E1577*
-        Only a single "%s" item is allowed in the option value.
       ]=],
       full_name = 'shellredir',
       scope = { 'global' },
@@ -8016,9 +7977,6 @@ local options = {
         	search count statistics.  The maximum limit can be set with
         	the 'maxsearchcount' option, see also |searchcount()|
         	function.
-          u	don't give undo and redo messages like			*shm-u*
-        	"1 line less; before #1  1 second ago", "Already at oldest
-        	change" or "Already at newest change"
 
         This gives you the opportunity to avoid that a change between buffers
         requires you to hit <Enter>, but still gives as useful a message as
@@ -8177,15 +8135,19 @@ local options = {
       cb = 'did_set_showtabline',
       defaults = 1,
       desc = [=[
-        Specifies when the |tabpage| labels will be displayed:
+        The value of this option specifies when the line with tab page labels
+        will be displayed:
         	0: never
-        	1: only if there are at least two tabpages
+        	1: only if there are at least two tab pages
         	2: always
+        This is both for the GUI and non-GUI implementation of the tab pages
+        line.
+        See |tab-page| for more information about tab pages.
       ]=],
       full_name = 'showtabline',
       redraw = { 'all_windows', 'ui_option' },
       scope = { 'global' },
-      short_desc = N_('tells when the tabpages line is displayed'),
+      short_desc = N_('tells when the tab pages line is displayed'),
       type = 'number',
       varname = 'p_stal',
     },
@@ -8648,7 +8610,6 @@ local options = {
     },
     {
       abbreviation = 'spk',
-      cb = 'did_set_splitkeep',
       defaults = 'cursor',
       values = { 'cursor', 'screen', 'topline' },
       desc = [=[
@@ -8895,14 +8856,14 @@ local options = {
         ( -   Start of item group.  Can be used for setting the width and
               alignment of a section.  Must be followed by %) somewhere.
         ) -   End of item group.  No width fields allowed.
-        T N   For 'tabline': start of tabpage N label.  Use %T or %X to end
+        T N   For 'tabline': start of tab page N label.  Use %T or %X to end
               the label.  Clicking this label with left mouse button switches
-              to the specified tabpage, while clicking it with middle mouse
-              button closes the specified tabpage.
+              to the specified tab page, while clicking it with middle mouse
+              button closes the specified tab page.
         X N   For 'tabline': start of close tab N label.  Use %X or %T to end
               the label, e.g.: %3Xclose%X.  Use %999X for a "close current
               tab" label.  Clicking this label with left mouse button closes
-              the specified tabpage.
+              the specified tab page.
         @ N   Start of execute function label. Use %X or %T to end the label,
               e.g.: %10@SwitchBuffer@foo.c%X.  Clicking this label runs the
               specified function: in the example when clicking once using left
@@ -8928,7 +8889,7 @@ local options = {
                  added without modifying code that reacts on mouse clicks on
                  this label.
               Use |getmousepos()|.winid in the specified function to get the
-              corresponding |window-ID| of the clicked item.
+              corresponding window id of the clicked item.
         \< -   Where to truncate line if too long.  Default is at the start.
               No width fields allowed.
         = -   Separation point between alignment sections.  Each section will
@@ -9104,18 +9065,18 @@ local options = {
           |:sbnext|, or |:sbrewind|).
         Possible values (comma-separated list):
            useopen	If included, jump to the first open window in the
-        		current tabpage that contains the specified buffer
+        		current tab page that contains the specified buffer
         		(if there is one).  Otherwise: Do not examine other
         		windows.
-           usetab	Like "useopen", but also consider windows in other
-        		tabpages.
+           usetab	Like "useopen", but also consider windows in other tab
+        		pages.
            split	If included, split the current window before loading
         		a buffer for a |quickfix| command that display errors.
         		Otherwise: do not split, use current window (when used
         		in the quickfix window: the previously used window or
         		split if there is no other window).
            vsplit	Just like "split" but split vertically.
-           newtab	Like "split", but open a new tabpage.  Overrules
+           newtab	Like "split", but open a new tab page.  Overrules
         		"split" when both are present.
            uselast	If included, jump to the previously used window when
         		jumping to errors with |quickfix| commands.
@@ -9192,20 +9153,20 @@ local options = {
       flags = true,
       deny_duplicates = true,
       desc = [=[
-        This option controls the behavior when closing tabpages (e.g., using
-        |:tabclose|).  When empty Vim goes to the next (right) tabpage.
+        This option controls the behavior when closing tab pages (e.g., using
+        |:tabclose|).  When empty Vim goes to the next (right) tab page.
 
         Possible values (comma-separated list):
-           left		If included, go to the previous tabpage instead of
+           left		If included, go to the previous tab page instead of
         		the next one.
-           uselast	If included, go to the previously used tabpage if
+           uselast	If included, go to the previously used tab page if
         		possible.  This option takes precedence over the
         		others.
       ]=],
       full_name = 'tabclose',
       list = 'onecomma',
       scope = { 'global' },
-      short_desc = N_('which tabpage to focus when closing a tab'),
+      short_desc = N_('which tab page to focus when closing a tab'),
       type = 'string',
       varname = 'p_tcl',
       flags_varname = 'tcl_flags',
@@ -9215,14 +9176,14 @@ local options = {
       cb = 'did_set_tabline',
       defaults = '',
       desc = [=[
-        When non-empty, this option determines the content of the tabpages
+        When non-empty, this option determines the content of the tab pages
         line at the top of the Vim window.  When empty Vim will use a default
-        tabpages line.  See |setting-tabline| for more info.
+        tab pages line.  See |setting-tabline| for more info.
 
-        The tabpages line only appears as specified with the 'showtabline'
+        The tab pages line only appears as specified with the 'showtabline'
         option and only when there is no GUI tab line.  When 'e' is in
         'guioptions' and the GUI supports a tab line 'guitablabel' is used
-        instead.  Note that the two tabpages lines are very different.
+        instead.  Note that the two tab pages lines are very different.
 
         The value is evaluated like with 'statusline'.  You can use
         |tabpagenr()|, |tabpagewinnr()| and |tabpagebuflist()| to figure out
@@ -9233,14 +9194,14 @@ local options = {
         trigger it to be updated, use |:redrawtabline|.
         This option cannot be set in a modeline when 'modelineexpr' is off.
 
-        Keep in mind that only one of the tabpages is the current one, others
+        Keep in mind that only one of the tab pages is the current one, others
         are invisible and you can't jump to their windows.
       ]=],
       full_name = 'tabline',
       modelineexpr = true,
       redraw = { 'tabline' },
       scope = { 'global' },
-      short_desc = N_('custom format for the console tabpages line'),
+      short_desc = N_('custom format for the console tab pages line'),
       type = 'string',
       varname = 'p_tal',
     },
@@ -9248,12 +9209,12 @@ local options = {
       abbreviation = 'tpm',
       defaults = 50,
       desc = [=[
-        Maximum number of tabpages to be opened by the |-p| command line
+        Maximum number of tab pages to be opened by the |-p| command line
         argument or the ":tab all" command. |tabpage|
       ]=],
       full_name = 'tabpagemax',
       scope = { 'global' },
-      short_desc = N_('maximum number of tabpages for |-p| and "tab all"'),
+      short_desc = N_('maximum number of tab pages for |-p| and "tab all"'),
       type = 'number',
       varname = 'p_tpm',
     },
@@ -9797,29 +9758,12 @@ local options = {
     {
       abbreviation = 'tf',
       defaults = true,
-      desc = [=[
-        Enables Nvim |TUI| features which assume a fast (usually local) host
-        terminal. During startup, Nvim queries the terminal (for 'background'
-        detection, etc.) and must wait for a response (or timeout).
-
-        If your terminal environment is slow (e.g. remote SSH), or broken
-        (doesn't respond to queries), Nvim startup may be slower. Therefore
-        you can disable this option by setting the `$NVIM_NOTTYFAST`
-        environment variable before starting Nvim: >
-        	NVIM_NOTTYFAST=1 nvim
-        <
-
-        The queries are performed early, before |--cmd| and user |config|, so
-        `:set nottyfast` in your config happens too late.
-      ]=],
       full_name = 'ttyfast',
       no_mkrc = true,
       scope = { 'global' },
-      short_desc = N_('assume terminal responds quickly, enabling more features'),
-      -- Vim E1568: https://github.com/vim/vim/blob/0f9218851dc91a855c3d186ccd05f550907cf37e/src/errors.h#L3791
-      tags = { 'E1568', '$NVIM_NOTTYFAST' },
+      short_desc = N_('Deprecated'),
       type = 'boolean',
-      varname = 'p_tf',
+      immutable = true,
     },
     {
       abbreviation = 'udir',
@@ -10385,7 +10329,7 @@ local options = {
       cb = 'did_set_wildmode',
       defaults = 'full',
       -- Keep this in sync with check_opt_wim().
-      values = { 'full', 'longest', 'list', 'lastused', 'noselect', 'noinsert' },
+      values = { 'full', 'longest', 'list', 'lastused', 'noselect' },
       flags = true,
       deny_duplicates = false,
       desc = [=[
@@ -10411,12 +10355,8 @@ local options = {
         		applies to buffer name completion.
         "noselect"	If 'wildmenu' is enabled, show the menu but do not
         		preselect the first item.
-        "noinsert"	If 'wildmenu' is enabled, show the menu and preselect
-        		the first match, but do not insert it in the command
-        		line.  If both "noinsert" and "noselect" are present,
-        		"noselect" takes precedence.
-        If only one match exists, it is completed fully, unless "noselect" or
-        "noinsert" is specified.
+        If only one match exists, it is completed fully, unless "noselect" is
+        specified.
 
         Some useful combinations of colon-separated values:
         "longest:full"		Start with the longest common string and show
@@ -10779,19 +10719,6 @@ local options = {
       short_desc = N_('minimal number of columns for any window'),
       type = 'number',
       varname = 'p_wmw',
-    },
-    {
-      abbreviation = 'wp',
-      defaults = false,
-      desc = [=[
-        If enabled, the window is pinned and will not be closed by |:only|
-        and |:fclose|. Only commands specifically targeting the window can
-        close it.
-      ]=],
-      full_name = 'winpinned',
-      scope = { 'win' },
-      short_desc = N_('prevent closing window with :only and :fclose'),
-      type = 'boolean',
     },
     {
       abbreviation = 'wiw',

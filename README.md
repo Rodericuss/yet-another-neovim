@@ -3,7 +3,7 @@
   <br>
   yanvim
   <br>
-  <sub>Yet Another Neovim — we should call it not so Neo-vim anymore</sub>
+  <sub>Yet Another Neovim, we should call it not so Neo-vim anymore</sub>
 </h1>
 
 <p align="center">
@@ -42,7 +42,7 @@ Vim-style commands like `di{`, `yi"`, `ca(` still work exactly as you'd expect. 
 
 ## How it works
 
-**Selection motions** (`w`, `b`, `e`, `$`, `0`, `G`, `gg`, `{`, `}`, `/`, `?`, `n`, `N`) create a highlighted selection from the cursor to the destination. Each motion resets the selection — pressing `w` three times selects only the third word, not all three.
+**Selection motions** (`w`, `b`, `e`, `$`, `0`, `G`, `gg`, `{`, `}`, `/`, `?`, `n`, `N`) create a highlighted selection from the cursor to the destination. Each motion resets the selection, pressing `w` three times selects only the third word, not all three.
 
 **Navigation** (`h`, `j`, `k`, `l`) moves the cursor and clears any active selection. This keeps operator-pending commands working: after navigating with `hjkl`, pressing `d` waits for a motion or text object just like in regular Vim. So `di{`, `yi"`, `ca(` all work.
 
@@ -92,7 +92,7 @@ Vim-style commands like `di{`, `yi"`, `ca(` still work exactly as you'd expect. 
 
 Because you have 200 hours invested in your Neovim config and you're not throwing that away. Because Telescope exists. Because LSP in Neovim is actually good now and you already suffered through configuring it. Because switching editors is for people who don't have deadlines.
 
-This gives you the one thing Helix got right — selection-first editing — without making you abandon your entire setup. And you keep `di{`.
+This gives you the one thing Helix got right, selection-first editing, without making you abandon your entire setup. And you keep `di{`.
 
 ## Why a fork? Why not a plugin?
 
@@ -169,7 +169,7 @@ This fork tracks upstream Neovim. I merge updates when I need them or when somet
 
 **This is intentional.**
 
-In an era where your package manager updates 47 things before breakfast — half of which introduce breaking changes that their own test suite didn't catch — this fork updates when a human (me) decides it's worth updating. I use this daily. If upstream ships something I need, it gets merged. If upstream ships something that breaks things, it doesn't.
+In an era where your package manager updates 47 things before breakfast, half of which introduce breaking changes that their own test suite didn't catch, this fork updates when a human (me) decides it's worth updating. I use this daily. If upstream ships something I need, it gets merged. If upstream ships something that breaks things, it doesn't.
 
 You might call this "lazy maintenance." I call it "not letting a cron job ruin my editor on a Monday morning."
 

@@ -19,6 +19,10 @@
   You select, <i>then</i> you act. Like a civilized person.
 </p>
 
+<p align="center">
+  <img src="./demo.gif" alt="yanvim demo" width="800">
+</p>
+
 ---
 
 ## What is this?

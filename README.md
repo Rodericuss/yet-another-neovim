@@ -1,7 +1,6 @@
 <h1 align="center">
- 
   <br>
-  yanvim
+  Yanvim
   <br>
   <sub>Yet Another Neovim, we should call it not so Neo-vim anymore</sub>
 </h1>

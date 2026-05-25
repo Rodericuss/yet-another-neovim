@@ -3,7 +3,7 @@
   <br>
   yanvim
   <br>
-  <sub>Yet Another Neovim — because the world desperately needed one more fork.</sub>
+  <sub>Yet Another Neovim — we should call it not so Neo-vim anymore</sub>
 </h1>
 
 <p align="center">

@@ -33,7 +33,7 @@ vim.opt.paradigm = 'vim'    -- default. you already know this one.
 vim.opt.paradigm = 'helix'  -- the good one.
 ```
 
-Set it to `'helix'` and Normal mode becomes selection-first. Motions like `w`, `b`, `$`, `G` create visual selections instead of just moving the cursor. You see what you're about to act on before you commit. Then you press `d`, `y`, `c` and it operates on the selection. No more `d3w` and praying you counted right.
+Set it to `'helix'` and Normal mode becomes selection-first. Motions like `w`, `b`, `$`, `G` create visual selections instead of just moving the cursor. You see what you're about to act on before you commit. Then you press `d`, `y`, `c` and it operates on the selection. 
 
 Vim-style commands like `di{`, `yi"`, `ca(` still work exactly as you'd expect. You get helix selections on top of Vim, not instead of it.
 
